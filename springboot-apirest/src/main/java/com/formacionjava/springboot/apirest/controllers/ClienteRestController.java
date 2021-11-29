@@ -2,6 +2,7 @@ package com.formacionjava.springboot.apirest.controllers;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -10,9 +11,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.activation.URLDataSource;
+import javax.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,13 +29,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.formacionjava.springboot.apirest.models.entity.Cliente;
+import com.formacionjava.springboot.apirest.models.entity.Region;
 import com.formacionjava.springboot.apirest.models.services.ClienteService;
+import com.google.common.io.ByteStreams;
 
 @RestController
 @RequestMapping("/api")
@@ -122,6 +133,7 @@ public class ClienteRestController {
 			clienteActual.setEmail(cliente.getEmail());
 			clienteActual.setTelefono(cliente.getTelefono());
 			clienteActual.setCreatedAt(cliente.getCreatedAt());
+			clienteActual.setRegion(cliente.getRegion());
 			
 			clienteUpdated = clienteService.save(clienteActual);
 		} catch (DataAccessException e) {
@@ -212,5 +224,37 @@ public class ClienteRestController {
 		
 		return new ResponseEntity<Map<String,Object>>(response,HttpStatus.CREATED);
 	}
+	
+	@GetMapping("/uploads/img/{nombreFoto:.+}")
+	public ResponseEntity<Resource> verFoto(@PathVariable String nombreFoto){
+		Path rutaArchivo = Paths.get("uploads").resolve(nombreFoto).toAbsolutePath();
+		
+		Resource recurso = null;
+		
+		try {
+			recurso = new UrlResource(rutaArchivo.toUri());
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		}
+		
+		if(!recurso.exists() && !recurso.isReadable()){
+			throw new RuntimeException("Error no se puede cargar la imagen "+nombreFoto);
+		}
+		
+		HttpHeaders cabecera = new HttpHeaders();
+		//cabecera.add(HttpHeaders.CONTENT_DISPOSITION,"attachment;filename=\""+recurso.getFilename()+"\"");
+		cabecera.add(HttpHeaders.CONTENT_DISPOSITION,"file=\""+recurso.getFilename()+"\"");
+	
+		
+		return new ResponseEntity<Resource>(recurso,cabecera,HttpStatus.OK);
+	}
+	
+	
+	@GetMapping("clientes/regiones")
+	public List<Region> listarRegiones(){
+		return clienteService.findAllRegions();
+	}
+
+
 	
 }
